@@ -1,0 +1,34 @@
+# app/schemas.py (อัปเดต - Pydantic v2 compatible)
+
+from pydantic import BaseModel, ConfigDict
+from typing import List, Optional, Dict, Any
+
+# --- สำหรับ Endpoint /upload ---
+class UploadResponse(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    success: bool
+    filename: str
+    message: str
+    extracted_metadata: Optional[Dict[str, Any]] = None
+    
+# --- สำหรับ Endpoint /query (Stateless) ---
+class QueryRequest(BaseModel):
+    question: str
+
+class SourceNode(BaseModel):
+    file_name: str
+    page_number: int
+    score: float
+    confidence: Optional[str] = None  # "high", "medium", "low"
+    text_content: str
+
+class QueryResponse(BaseModel):
+    answer: str
+    source_nodes: List[SourceNode]
+
+# --- (NEW) สำหรับ Endpoint /chat (Stateful) ---
+class ChatRequest(BaseModel):
+    question: str
+    session_id: str  # เพิ่ม session_id
+

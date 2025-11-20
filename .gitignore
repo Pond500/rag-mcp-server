@@ -1,0 +1,10 @@
+venv/
+.env/
+qdrant_storage/
+uploads/
+venv_clean/
+.mcp_server.pid
+.ngrok.pid
+mcp_server.log
+ngrok.log
+__pycache__/
