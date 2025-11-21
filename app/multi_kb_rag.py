@@ -34,6 +34,10 @@ import io
 class MultiKnowledgeBaseRAG:
     """Multi-Knowledge Base RAG System with Hybrid Approach"""
     
+    # Router Index constant
+    ROUTER_COLLECTION_NAME = "master_router_index"
+    ROUTER_SIMILARITY_THRESHOLD = 0.4  # Minimum score for routing confidence
+    
     def __init__(self):
         """Initialize Multi-KB RAG system"""
         print("🚀 Initializing Multi-Knowledge Base RAG System...")
@@ -69,6 +73,9 @@ class MultiKnowledgeBaseRAG:
         # Chat histories: {collection_name: {session_id: ConversationBufferMemory}}
         self.chat_histories: Dict[str, Dict[str, ConversationBufferMemory]] = {}
         
+        # Ensure router index exists
+        self._ensure_router_index()
+        
         print("✅ Multi-KB RAG System initialized")
     
     def _normalize_collection_name(self, name: str) -> str:
@@ -79,6 +86,60 @@ class MultiKnowledgeBaseRAG:
         """Get full collection name with prefix"""
         normalized = self._normalize_collection_name(kb_name)
         return f"kb_{normalized}"
+    
+    def _ensure_router_index(self) -> None:
+        """Ensure master router index exists (for semantic routing)"""
+        if not self.collection_exists(self.ROUTER_COLLECTION_NAME):
+            try:
+                # Create router index with same dimensions as embeddings (1024 for bge-m3)
+                self.qdrant_client.create_collection(
+                    collection_name=self.ROUTER_COLLECTION_NAME,
+                    vectors_config=VectorParams(size=1024, distance=Distance.COSINE)
+                )
+                print(f"✅ Created master router index: {self.ROUTER_COLLECTION_NAME}")
+            except Exception as e:
+                print(f"⚠️ Failed to create router index: {e}")
+    
+    def _update_router_index(self, kb_name: str, description: str) -> None:
+        """
+        Update master router index with KB description
+        This allows semantic routing to find the right KB based on query similarity
+        
+        Args:
+            kb_name: Knowledge base name
+            description: KB description (AI-generated or manual)
+        """
+        if not description or description == "Auto-created collection":
+            print(f"⚠️ Skipping router update for {kb_name} (no meaningful description)")
+            return
+        
+        try:
+            # Generate embedding for the description
+            description_vector = self.embed_model.embed_query(description)
+            
+            # Create point for router index
+            collection_name = self._get_collection_name(kb_name)
+            point = PointStruct(
+                id=collection_name,  # Use collection name as ID for easy updates
+                vector=description_vector,
+                payload={
+                    "kb_name": kb_name,
+                    "collection_name": collection_name,
+                    "description": description,
+                    "updated_at": datetime.now().isoformat()
+                }
+            )
+            
+            # Upsert to router index
+            self.qdrant_client.upsert(
+                collection_name=self.ROUTER_COLLECTION_NAME,
+                points=[point]
+            )
+            
+            print(f"✅ Updated router index for: {kb_name}")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to update router index for {kb_name}: {e}")
     
     def collection_exists(self, collection_name: str) -> bool:
         """Check if collection exists"""
@@ -131,6 +192,9 @@ class MultiKnowledgeBaseRAG:
                 collection_name=collection_name,
                 points=[metadata_point]
             )
+            
+            # Update router index for semantic routing
+            self._update_router_index(kb_name, description)
             
             print(f"✅ Created collection: {collection_name}")
             return {
@@ -501,6 +565,11 @@ class MultiKnowledgeBaseRAG:
             )
             vector_store.add_documents(split_docs)
             
+            # ========================================
+            # STEP 7: Update router index with smart description
+            # ========================================
+            self._update_router_index(kb_name, smart_description)
+            
             print(f"✅ Successfully uploaded {filename} to {kb_name}")
             print(f"   KB Name: {kb_name}")
             print(f"   Collection: {collection_name}")
@@ -619,6 +688,123 @@ class MultiKnowledgeBaseRAG:
                 "success": False,
                 "message": str(e)
             }
+    
+    def route_to_kb(self, query: str) -> Optional[Tuple[str, float]]:
+        """
+        Route query to the most relevant KB using semantic search on master router index
+        
+        Args:
+            query: User query
+            
+        Returns:
+            Tuple of (kb_name, similarity_score) or None if no good match found
+        """
+        try:
+            # Check if router index exists and has data
+            if not self.collection_exists(self.ROUTER_COLLECTION_NAME):
+                print("⚠️ Router index does not exist")
+                return None
+            
+            collection_info = self.qdrant_client.get_collection(self.ROUTER_COLLECTION_NAME)
+            if collection_info.points_count == 0:
+                print("⚠️ Router index is empty (no KBs registered)")
+                return None
+            
+            # Generate query embedding
+            query_vector = self.embed_model.embed_query(query)
+            
+            # Search router index
+            search_result = self.qdrant_client.search(
+                collection_name=self.ROUTER_COLLECTION_NAME,
+                query_vector=query_vector,
+                limit=1
+            )
+            
+            if not search_result:
+                print("⚠️ No results from router index")
+                return None
+            
+            # Get best match
+            best_match = search_result[0]
+            kb_name = best_match.payload.get("kb_name")
+            score = best_match.score
+            description = best_match.payload.get("description", "")
+            
+            print(f"🎯 Router found: {kb_name} (score: {score:.3f})")
+            print(f"   Description: {description}")
+            
+            # Check if score meets threshold
+            if score < self.ROUTER_SIMILARITY_THRESHOLD:
+                print(f"⚠️ Score {score:.3f} below threshold {self.ROUTER_SIMILARITY_THRESHOLD}")
+                return None
+            
+            return (kb_name, score)
+            
+        except Exception as e:
+            print(f"❌ Routing failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def chat_auto_route(
+        self,
+        query: str,
+        session_id: str,
+        top_k: int = 5
+    ) -> Dict[str, Any]:
+        """
+        Chat with automatic KB routing (Semantic Router)
+        The system will automatically find the most relevant KB for your query
+        
+        Args:
+            query: User query
+            session_id: Session ID for conversation history
+            top_k: Number of documents to retrieve
+            
+        Returns:
+            Dict with answer and routing information
+        """
+        print(f"🌐 Auto-routing query: '{query[:100]}...'")
+        
+        # Route to best KB
+        routing_result = self.route_to_kb(query)
+        
+        if routing_result is None:
+            # No suitable KB found
+            available_kbs = self.list_collections()
+            kb_list = [kb['kb_name'] for kb in available_kbs.get('collections', [])]
+            
+            return {
+                "success": False,
+                "message": "I don't know which knowledge base to use for this question.",
+                "suggestion": "Please specify a knowledge base explicitly using chat_with_kb, or upload relevant documents first.",
+                "query": query,
+                "available_kbs": kb_list,
+                "routing_attempted": True,
+                "routing_failed": True
+            }
+        
+        # Unpack routing result
+        kb_name, confidence_score = routing_result
+        
+        print(f"✅ Routed to: {kb_name} (confidence: {confidence_score:.3f})")
+        
+        # Chat with the selected KB
+        result = self.chat_with_collection(
+            kb_name=kb_name,
+            query=query,
+            session_id=session_id,
+            top_k=top_k
+        )
+        
+        # Add routing information to response
+        if result.get("success"):
+            result["routed_to"] = kb_name
+            result["routing_confidence"] = confidence_score
+            result["routing_method"] = "semantic_similarity"
+            print(f"✅ Auto-route successful: {kb_name}")
+        
+        return result
     
     def clear_chat_history(self, kb_name: str, session_id: str) -> Dict[str, Any]:
         """Clear chat history for a session"""
