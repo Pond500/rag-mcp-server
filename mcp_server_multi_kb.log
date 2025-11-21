@@ -1,114 +1,22 @@
-INFO:     Started server process [41459]
+INFO: ✅ Logger initialized: mcp_server
+INFO:     Started server process [52196]
 INFO:     Waiting for application startup.
-Load pretrained SentenceTransformer: BAAI/bge-m3
+INFO: 🚀 Starting Multi-KB MCP Server...
+INFO: 🚀 Initializing Multi-Knowledge Base RAG System...
 /Users/pond500/RAG/mcp_rag-main/venv_clean/lib/python3.10/site-packages/huggingface_hub/file_download.py:942: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
   warnings.warn(
-Use pytorch device_name: mps
+INFO: ✅ Multi-KB RAG System initialized
+INFO: ✅ Multi-KB MCP Server ready
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-🚀 Starting Multi-KB MCP Server...
-🚀 Initializing Multi-Knowledge Base RAG System...
-✅ Multi-KB RAG System initialized
-✅ Multi-KB MCP Server ready
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-📥 Received: tools/list
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-📥 Received: tools/list
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
-📥 Received: tools/call
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
-📥 Received: tools/call
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
-📥 Received: tools/call
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
-📥 Received: tools/call
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-HTTP Request: GET http://localhost:6333/collections/kb_test88 "HTTP/1.1 404 Not Found"
-HTTP Request: PUT http://localhost:6333/collections/kb_test88 "HTTP/1.1 200 OK"
-HTTP Request: PUT http://localhost:6333/collections/kb_test88/points?wait=true "HTTP/1.1 200 OK"
-📥 Received: tools/call
-✅ Created collection: kb_test88
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-HTTP Request: GET http://localhost:6333/collections/kb_test88 "HTTP/1.1 200 OK"
-📥 Received: tools/call
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-HTTP Request: GET http://localhost:6333/collections/kb_test88 "HTTP/1.1 200 OK"
-HTTP Request: GET http://localhost:6333/collections/kb_test88 "HTTP/1.1 200 OK"
-HTTP Request: POST http://localhost:6333/collections/kb_test88/points/scroll "HTTP/1.1 200 OK"
-📥 Received: tools/call
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: initialize
-📤 Sending initialize response with 7 tools
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
-📥 Received: notifications/initialized
-✅ Notification acknowledged: notifications/initialized
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
-HTTP Request: GET http://localhost:6333/collections "HTTP/1.1 200 OK"
-HTTP Request: GET http://localhost:6333/collections/kb_test88 "HTTP/1.1 200 OK"
-📥 Received: tools/call
-INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (0.88ms)
+INFO:     127.0.0.1:51128 - "POST /mcp HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO: 🛑 Shutting down Multi-KB MCP Server...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [52196]
 /opt/homebrew/Cellar/python@3.10/3.10.19_1/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
   warnings.warn('resource_tracker: There appear to be %d '

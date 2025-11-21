@@ -12,8 +12,8 @@ Features:
 """
 
 import os
-import logging
 import base64
+import time
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,9 +22,8 @@ import json
 from typing import Dict, Any, Optional
 import traceback
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(message)s')
-logger = logging.getLogger(__name__)
+# Import centralized logger
+from app.logger import logger
 
 # Import Multi-KB RAG
 from app.multi_kb_rag import get_multi_kb_rag
@@ -36,16 +35,16 @@ multi_kb_rag = None
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     global multi_kb_rag
-    print("🚀 Starting Multi-KB MCP Server...")
+    logger.info("🚀 Starting Multi-KB MCP Server...")
     
     # Initialize Multi-KB RAG
     multi_kb_rag = get_multi_kb_rag()
     
-    print("✅ Multi-KB MCP Server ready")
+    logger.info("✅ Multi-KB MCP Server ready")
     yield
     
     # Cleanup
-    print("🛑 Shutting down Multi-KB MCP Server...")
+    logger.info("🛑 Shutting down Multi-KB MCP Server...")
 
 # Create FastAPI app
 app = FastAPI(
@@ -65,19 +64,52 @@ app.add_middleware(
 )
 
 # ============================================================================
+# Request Logging Middleware
+# ============================================================================
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all HTTP requests and responses with timing"""
+    start_time = time.time()
+    
+    # Log incoming request
+    logger.info(f"📥 {request.method} {request.url.path}")
+    logger.debug(f"Headers: {dict(request.headers)}")
+    
+    # Process request
+    try:
+        response = await call_next(request)
+        
+        # Calculate process time
+        process_time = (time.time() - start_time) * 1000  # Convert to ms
+        
+        # Log response
+        logger.info(f"📤 {request.method} {request.url.path} → {response.status_code} ({process_time:.2f}ms)")
+        
+        # Add process time header
+        response.headers["X-Process-Time"] = f"{process_time:.2f}ms"
+        
+        return response
+        
+    except Exception as e:
+        process_time = (time.time() - start_time) * 1000
+        logger.error(f"❌ {request.method} {request.url.path} → ERROR ({process_time:.2f}ms): {e}", exc_info=True)
+        raise
+
+# ============================================================================
 # MCP Tools Definitions
 # ============================================================================
 
 MULTI_KB_TOOLS = [
     {
         "name": "create_collection",
-        "description": "สร้าง knowledge base (collection) ใหม่สำหรับเก็บเอกสารแยกประเภท. ใช้เมื่อต้องการเตรียม KB ก่อนอัพโหลดเอกสาร แต่ส่วนใหญ่ไม่จำเป็น เพราะ upload_document_to_kb สามารถสร้าง KB ให้อัตโนมัติได้ (auto_create=true)",
+        "description": "สร้าง knowledge base (collection) ใหม่สำหรับเก็บเอกสารแยกประเภท. ใช้เมื่อต้องการเตรียม KB ก่อนอัพโหลดเอกสาร แต่ส่วนใหญ่ไม่จำเป็น เพราะ upload_document_to_kb สามารถสร้าง KB ให้อัตโนมัติได้ (auto_create=true).(DEPRECATED flow: แนะนำให้ข้ามไปใช้ upload_document_to_kb ได้เลย เพราะระบบจะสร้างให้อัตโนมัติ).",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "kb_name": {
                     "type": "string",
-                    "description": "ชื่อ knowledge base (เช่น 'medical', 'legal', 'project_2024')"
+                    "description": "ชื่อ knowledge base (ภาษาอังกฤษตัวพิมพ์เล็กเท่านั้น, ห้ามมีเว้นวรรค ให้ใช้ underscore แทน เช่น 'medical_reports', 'project_alpha')"
                 },
                 "description": {
                     "type": "string",
@@ -111,7 +143,7 @@ MULTI_KB_TOOLS = [
     },
     {
         "name": "upload_document_to_kb",
-        "description": "อัพโหลดเอกสารไปยัง knowledge base ที่ระบุ (auto-create collection ถ้ายังไม่มี). ใช้ tool นี้เมื่อต้องการเพิ่มเอกสารใหม่ หรือสร้าง KB ใหม่พร้อมอัพโหลดเอกสารครั้งแรก. หลังจากอัพโหลดสำเร็จแล้วสามารถใช้ chat_with_kb เพื่อถามคำถามได้ทันที",
+        "description": "อัพโหลดเอกสารไปยัง knowledge base ที่ระบุ (auto-create collection ถ้ายังไม่มี). ระบบจะใช้ AI อ่านเนื้อหาไฟล์เพื่อสกัด Metadata (เช่น ประเภทเอกสาร, หมวดหมู่) ให้อัตโนมัติ. ใช้ tool นี้เพื่อนำเข้าเอกสารเข้าสู่ระบบ",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -121,7 +153,7 @@ MULTI_KB_TOOLS = [
                 },
                 "file_content": {
                     "type": "string",
-                    "description": "เนื้อหาไฟล์ที่ encode เป็น base64"
+                    "description": "เนื้อหาไฟล์ดิบที่ถูกแปลงเป็น Base64 String แล้วเท่านั้น (ห้ามส่ง URL หรือ path). หากเป็นไฟล์ขนาดใหญ่ ต้องมั่นใจว่า String ไม่ถูกตัดตอน"
                 },
                 "filename": {
                     "type": "string",
@@ -143,7 +175,7 @@ MULTI_KB_TOOLS = [
     },
     {
         "name": "chat_with_kb",
-        "description": "คุยกับ knowledge base ที่เลือก (มี conversation history). ใช้ tool นี้เมื่อต้องการถามคำถามเกี่ยวกับเอกสารใน KB. ต้องมีเอกสารอัพโหลดไว้แล้ว (ใช้ upload_document_to_kb ก่อน). ใช้ session_id เดียวกันเพื่อให้ AI จำบทสนทนาก่อนหน้า",
+        "description": "คุยกับ knowledge base ที่เลือก (มี conversation history). Tool นี้จะคืนคำตอบพร้อม 'รายการเอกสารอ้างอิง (Sources)' เสมอ กรุณานำข้อมูลส่วน Sources ไปอ้างอิงในคำตอบด้วย. ต้องมีเอกสารอัพโหลดไว้แล้ว (ใช้ upload_document_to_kb ก่อน). ใช้ session_id เดียวกันเพื่อให้ AI จำบทสนทนาก่อนหน้า",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -157,7 +189,7 @@ MULTI_KB_TOOLS = [
                 },
                 "session_id": {
                     "type": "string",
-                    "description": "Session ID สำหรับเก็บประวัติการสนทนา (เช่น 'user123_session1')"
+                    "description": "Unique Session ID ที่ต้อง 'เหมือนเดิมตลอดการสนทนา' (Consistent ID) เพื่อให้ AI จำบริบทเก่าได้ ห้ามเปลี่ยน ID ระหว่างคุยในหัวข้อเดิม"
                 },
                 "top_k": {
                     "type": "integer",
@@ -166,6 +198,29 @@ MULTI_KB_TOOLS = [
                 }
             },
             "required": ["kb_name", "query", "session_id"]
+        }
+    },
+    {
+        "name": "chat_global",
+        "description": "🌐 Chat with the ENTIRE system using Semantic Router. The AI will AUTOMATICALLY find and route your question to the most relevant Knowledge Base based on content similarity. Use this when: 1) User doesn't specify which KB to use, 2) User asks a general question without KB context, 3) You want the system to intelligently pick the right KB. Example: User asks 'How to get a gun license?' → System automatically routes to 'kb_gun_law'. This is powered by AI-generated KB descriptions and semantic similarity matching.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "คำถามหรือข้อความของ User (ระบบจะหา KB ที่เหมาะสมให้อัตโนมัติ)"
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "Session ID สำหรับเก็บประวัติการสนทนา (ควรใช้ ID เดียวกันตลอดการสนทนา)"
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": "จำนวนเอกสารที่ต้องการดึงมา (default: 5)",
+                    "default": 5
+                }
+            },
+            "required": ["query", "session_id"]
         }
     },
     {
@@ -199,8 +254,9 @@ MULTI_KB_TOOLS = [
             },
             "required": ["kb_name"]
         }
-    }
+    },
 ]
+
 
 # ============================================================================
 # MCP Protocol Handlers
@@ -214,7 +270,7 @@ async def handle_mcp_message(request: Request):
         message_id = body.get("id")
         params = body.get("params", {})
         
-        print(f"📥 Received: {method}")
+        logger.debug(f"MCP Method: {method}, ID: {message_id}")
         
         # Route to appropriate handler
         if method == "initialize":
@@ -225,14 +281,14 @@ async def handle_mcp_message(request: Request):
             return await handle_tools_call(message_id, params)
         elif method and method.startswith("notifications/"):
             # Notifications: HTTP 202 Accepted with no body
-            print(f"✅ Notification acknowledged: {method}")
+            logger.debug(f"Notification acknowledged: {method}")
             return Response(status_code=202, headers={"Content-Length": "0"})
         else:
+            logger.warning(f"Unknown method: {method}")
             return create_error_response(message_id, -32601, f"Method not found: {method}")
             
     except Exception as e:
-        print(f"❌ Error: {e}")
-        traceback.print_exc()
+        logger.error(f"MCP message handling error: {e}", exc_info=True)
         return create_error_response(None, -32603, str(e))
 
 def handle_initialize(message_id: Any) -> JSONResponse:
@@ -258,17 +314,23 @@ def handle_initialize(message_id: Any) -> JSONResponse:
 2. Add documents to existing KB:
    → upload_document_to_kb (kb_name=existing) → chat_with_kb
    
-3. Query existing KB:
+3. Query existing KB (when user specifies KB):
    → chat_with_kb (use same session_id for conversation continuity)
    
-4. Explore KBs:
+4. Query WITHOUT specifying KB (NEW - Semantic Router):
+   → chat_global (system auto-finds best KB)
+   
+5. Explore KBs:
    → list_collections → get_collection_info → chat_with_kb
 
 🔑 KEY FEATURES:
-- Auto-create: upload_document_to_kb creates KB if not exists (no need to call create_collection first)
-- Session management: Use consistent session_id per user/conversation for context memory
-- Multi-KB: Each KB is isolated - no cross-contamination of data
-- File types: PDF, TXT, DOCX supported
+- 🌐 Semantic Router: chat_global automatically finds the right KB (no need to specify kb_name)
+- 🤖 Auto-create: upload_document_to_kb creates KB if not exists (no need to call create_collection first)
+- 📝 Auto-Metadata: System automatically extracts doc_type, category, and title using AI upon upload
+- 🧠 Smart Descriptions: AI generates rich KB descriptions for semantic routing
+- 💬 Session management: Use consistent session_id per user/conversation for context memory
+- 🗂️ Multi-KB: Each KB is isolated - no cross-contamination of data
+- 📄 File types: PDF, TXT, DOCX supported
 
 ⚠️ ERROR HANDLING:
 - If KB doesn't exist: Use upload_document_to_kb with auto_create=true
@@ -282,7 +344,8 @@ def handle_initialize(message_id: Any) -> JSONResponse:
             "tools": MULTI_KB_TOOLS
         }
     }
-    print(f"📤 Sending initialize response with {len(MULTI_KB_TOOLS)} tools")
+    logger.info(f"✅ Initialize: Registered {len(MULTI_KB_TOOLS)} tools (including 🌐 chat_global)")
+    logger.debug(f"Tools: {[tool['name'] for tool in MULTI_KB_TOOLS]}")
     return JSONResponse(response)
 
 def handle_tools_list(message_id: Any) -> JSONResponse:
@@ -297,6 +360,9 @@ async def handle_tools_call(message_id: Any, params: Dict[str, Any]) -> JSONResp
     """Handle tools/call request"""
     tool_name = params.get("name")
     arguments = params.get("arguments", {})
+    
+    logger.info(f"🔧 Tool call: {tool_name}")
+    logger.debug(f"Arguments: {arguments}")
     
     try:
         result = None
@@ -335,6 +401,14 @@ async def handle_tools_call(message_id: Any, params: Dict[str, Any]) -> JSONResp
                 top_k=arguments.get("top_k", 5)
             )
         
+        elif tool_name == "chat_global":
+            # 🌐 NEW: Semantic Router - Auto-route to best KB
+            result = multi_kb_rag.chat_auto_route(
+                query=arguments["query"],
+                session_id=arguments["session_id"],
+                top_k=arguments.get("top_k", 5)
+            )
+        
         elif tool_name == "clear_chat_history":
             result = multi_kb_rag.clear_chat_history(
                 kb_name=arguments["kb_name"],
@@ -366,8 +440,7 @@ async def handle_tools_call(message_id: Any, params: Dict[str, Any]) -> JSONResp
         })
     
     except Exception as e:
-        print(f"❌ Tool execution failed: {e}")
-        traceback.print_exc()
+        logger.error(f"❌ Tool execution failed ({tool_name}): {e}", exc_info=True)
         return create_error_response(message_id, -32603, f"Tool execution failed: {str(e)}")
 
 def create_error_response(message_id: Any, code: int, message: str) -> JSONResponse:

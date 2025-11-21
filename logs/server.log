@@ -1,0 +1,33 @@
+2025-11-21 13:50:15 | INFO     | logger.py:76 | ✅ Logger initialized: mcp_server
+2025-11-21 13:50:15 | DEBUG    | logger.py:77 | Log file: /Users/pond500/RAG/mcp_rag-main/logs/server.log
+2025-11-21 13:50:15 | INFO     | <stdin>:3 | Testing logger...
+2025-11-21 13:50:15 | DEBUG    | <stdin>:4 | This is a debug message
+2025-11-21 13:50:15 | WARNING  | <stdin>:5 | This is a warning
+2025-11-21 13:50:15 | ERROR    | <stdin>:6 | This is an error
+2025-11-21 13:50:41 | INFO     | logger.py:76 | ✅ Logger initialized: mcp_server
+2025-11-21 13:50:41 | DEBUG    | logger.py:77 | Log file: /Users/pond500/RAG/mcp_rag-main/logs/server.log
+2025-11-21 13:50:41 | INFO     | multi_kb_rag.py:45 | 🚀 Initializing Multi-Knowledge Base RAG System...
+2025-11-21 13:50:41 | DEBUG    | multi_kb_rag.py:52 | Qdrant client: localhost:6333
+2025-11-21 13:50:50 | INFO     | multi_kb_rag.py:82 | ✅ Multi-KB RAG System initialized
+2025-11-21 13:51:07 | INFO     | logger.py:76 | ✅ Logger initialized: mcp_server
+2025-11-21 13:51:07 | DEBUG    | logger.py:77 | Log file: /Users/pond500/RAG/mcp_rag-main/logs/server.log
+2025-11-21 13:51:08 | INFO     | mcp_server_multi_kb.py:38 | 🚀 Starting Multi-KB MCP Server...
+2025-11-21 13:51:08 | INFO     | multi_kb_rag.py:45 | 🚀 Initializing Multi-Knowledge Base RAG System...
+2025-11-21 13:51:08 | DEBUG    | multi_kb_rag.py:52 | Qdrant client: localhost:6333
+2025-11-21 13:51:15 | INFO     | multi_kb_rag.py:82 | ✅ Multi-KB RAG System initialized
+2025-11-21 13:51:15 | INFO     | mcp_server_multi_kb.py:43 | ✅ Multi-KB MCP Server ready
+2025-11-21 13:51:15 | INFO     | mcp_server_multi_kb.py:47 | 🛑 Shutting down Multi-KB MCP Server...
+2025-11-21 13:51:33 | INFO     | logger.py:76 | ✅ Logger initialized: mcp_server
+2025-11-21 13:51:33 | DEBUG    | logger.py:77 | Log file: /Users/pond500/RAG/mcp_rag-main/logs/server.log
+2025-11-21 13:51:34 | INFO     | mcp_server_multi_kb.py:38 | 🚀 Starting Multi-KB MCP Server...
+2025-11-21 13:51:34 | INFO     | multi_kb_rag.py:45 | 🚀 Initializing Multi-Knowledge Base RAG System...
+2025-11-21 13:51:34 | DEBUG    | multi_kb_rag.py:52 | Qdrant client: localhost:6333
+2025-11-21 13:51:39 | INFO     | multi_kb_rag.py:82 | ✅ Multi-KB RAG System initialized
+2025-11-21 13:51:39 | INFO     | mcp_server_multi_kb.py:43 | ✅ Multi-KB MCP Server ready
+2025-11-21 13:51:39 | INFO     | mcp_server_multi_kb.py:76 | 📥 POST /mcp
+2025-11-21 13:51:39 | DEBUG    | mcp_server_multi_kb.py:77 | Headers: {'host': 'localhost:8000', 'user-agent': 'curl/8.7.1', 'accept': '*/*', 'content-type': 'application/json', 'content-length': '151'}
+2025-11-21 13:51:39 | DEBUG    | mcp_server_multi_kb.py:273 | MCP Method: initialize, ID: 1
+2025-11-21 13:51:39 | INFO     | mcp_server_multi_kb.py:347 | ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+2025-11-21 13:51:39 | DEBUG    | mcp_server_multi_kb.py:348 | Tools: ['create_collection', 'list_collections', 'get_collection_info', 'upload_document_to_kb', 'chat_with_kb', 'chat_global', 'clear_chat_history', 'delete_collection']
+2025-11-21 13:51:39 | INFO     | mcp_server_multi_kb.py:87 | 📤 POST /mcp → 200 (0.88ms)
+2025-11-21 13:51:42 | INFO     | mcp_server_multi_kb.py:47 | 🛑 Shutting down Multi-KB MCP Server...

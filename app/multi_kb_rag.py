@@ -16,6 +16,8 @@ import uuid
 from datetime import datetime
 import json
 from app.prompts import METADATA_EXTRACTOR_TEMPLATE
+from app.logger import logger
+
 # LangChain imports
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
@@ -40,13 +42,14 @@ class MultiKnowledgeBaseRAG:
     
     def __init__(self):
         """Initialize Multi-KB RAG system"""
-        print("🚀 Initializing Multi-Knowledge Base RAG System...")
+        logger.info("🚀 Initializing Multi-Knowledge Base RAG System...")
         
         # Qdrant client
         self.qdrant_client = qdrant_client.QdrantClient(
             host=config.QDRANT_HOST,
             port=config.QDRANT_PORT
         )
+        logger.debug(f"Qdrant client: {config.QDRANT_HOST}:{config.QDRANT_PORT}")
         
         # LLM
         self.llm = ChatOpenAI(
@@ -76,7 +79,7 @@ class MultiKnowledgeBaseRAG:
         # Ensure router index exists
         self._ensure_router_index()
         
-        print("✅ Multi-KB RAG System initialized")
+        logger.info("✅ Multi-KB RAG System initialized")
     
     def _normalize_collection_name(self, name: str) -> str:
         """Normalize collection name (lowercase, replace spaces with underscore)"""
@@ -96,9 +99,9 @@ class MultiKnowledgeBaseRAG:
                     collection_name=self.ROUTER_COLLECTION_NAME,
                     vectors_config=VectorParams(size=1024, distance=Distance.COSINE)
                 )
-                print(f"✅ Created master router index: {self.ROUTER_COLLECTION_NAME}")
+                logger.info(f"✅ Created master router index: {self.ROUTER_COLLECTION_NAME}")
             except Exception as e:
-                print(f"⚠️ Failed to create router index: {e}")
+                logger.error(f"⚠️ Failed to create router index: {e}", exc_info=True)
     
     def _update_router_index(self, kb_name: str, description: str) -> None:
         """
@@ -110,10 +113,11 @@ class MultiKnowledgeBaseRAG:
             description: KB description (AI-generated or manual)
         """
         if not description or description == "Auto-created collection":
-            print(f"⚠️ Skipping router update for {kb_name} (no meaningful description)")
+            logger.debug(f"Skipping router update for {kb_name} (no meaningful description)")
             return
         
         try:
+            logger.debug(f"Updating router index for {kb_name}...")
             # Generate embedding for the description
             description_vector = self.embed_model.embed_query(description)
             
@@ -136,10 +140,11 @@ class MultiKnowledgeBaseRAG:
                 points=[point]
             )
             
-            print(f"✅ Updated router index for: {kb_name}")
+            logger.info(f"✅ Updated router index for: {kb_name}")
+            logger.debug(f"Description: {description[:100]}...")
             
         except Exception as e:
-            print(f"⚠️ Failed to update router index for {kb_name}: {e}")
+            logger.error(f"Failed to update router index for {kb_name}: {e}", exc_info=True)
     
     def collection_exists(self, collection_name: str) -> bool:
         """Check if collection exists"""
@@ -196,7 +201,7 @@ class MultiKnowledgeBaseRAG:
             # Update router index for semantic routing
             self._update_router_index(kb_name, description)
             
-            print(f"✅ Created collection: {collection_name}")
+            logger.info(f"✅ Created collection: {collection_name}")
             return {
                 "success": True,
                 "kb_name": kb_name,
@@ -205,7 +210,7 @@ class MultiKnowledgeBaseRAG:
                 "created_at": datetime.now().isoformat()
             }
         except Exception as e:
-            print(f"❌ Failed to create collection: {e}")
+            logger.error(f"Failed to create collection: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": str(e)
@@ -261,7 +266,7 @@ class MultiKnowledgeBaseRAG:
                 "collections": kb_list
             }
         except Exception as e:
-            print(f"❌ Failed to list collections: {e}")
+            logger.error(f"Failed to list collections: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": str(e),
@@ -303,7 +308,7 @@ class MultiKnowledgeBaseRAG:
                 "metadata": metadata
             }
         except Exception as e:
-            print(f"❌ Failed to get collection info: {e}")
+            logger.error(f"Failed to get collection info: {e}", exc_info=True)
             return None
     
     def delete_collection(self, kb_name: str) -> Dict[str, Any]:
@@ -323,13 +328,13 @@ class MultiKnowledgeBaseRAG:
             if collection_name in self.chat_histories:
                 del self.chat_histories[collection_name]
             
-            print(f"✅ Deleted collection: {collection_name}")
+            logger.info(f"✅ Deleted collection: {collection_name}")
             return {
                 "success": True,
                 "message": f"Collection '{kb_name}' deleted successfully"
             }
         except Exception as e:
-            print(f"❌ Failed to delete collection: {e}")
+            logger.error(f"Failed to delete collection: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": str(e)
@@ -345,7 +350,7 @@ class MultiKnowledgeBaseRAG:
                 text = file_bytes.decode('utf-8')
                 return [{"page_number": 1, "text": text}]
             except Exception as e:
-                print(f"❌ Failed to read TXT: {e}")
+                logger.error(f"Failed to read TXT: {e}", exc_info=True)
                 return []
         
         elif content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -359,11 +364,11 @@ class MultiKnowledgeBaseRAG:
                 text = '\n'.join(full_text)
                 return [{"page_number": 1, "text": text}]
             except Exception as e:
-                print(f"❌ Failed to read DOCX: {e}")
+                logger.error(f"Failed to read DOCX: {e}", exc_info=True)
                 return []
         
         else:
-            print(f"❌ Unsupported file type: {content_type}")
+            logger.warning(f"Unsupported file type: {content_type}")
             return []
     
     def _extract_metadata_from_text(self, text: str) -> Dict[str, Any]:
@@ -376,7 +381,7 @@ class MultiKnowledgeBaseRAG:
         Returns:
             Dict with doc_type, category, status, title
         """
-        print("🤖 AI Extracting metadata from document...")
+        logger.info("🤖 AI Extracting metadata from document...")
         
         # Truncate text to save tokens (first 4000 characters)
         truncated_text = text[:4000]
@@ -407,13 +412,13 @@ class MultiKnowledgeBaseRAG:
                     if field not in extracted_data:
                         extracted_data[field] = "Unknown"
                 
-                print(f"✅ AI Metadata extracted: {extracted_data}")
+                logger.debug(f"AI Metadata extracted: {extracted_data}")
                 return extracted_data
             else:
                 raise ValueError("LLM did not return a dictionary")
             
         except Exception as e:
-            print(f"⚠️ Metadata extraction failed: {e}")
+            logger.warning(f"Metadata extraction failed: {e}")
             # Fallback to default values
             return {
                 "doc_type": "Unknown", 
@@ -480,7 +485,7 @@ class MultiKnowledgeBaseRAG:
         # ========================================
         # STEP 1: Extract text from file FIRST
         # ========================================
-        print(f"📄 Extracting text from {filename}...")
+        logger.info(f"📄 Extracting text from {filename}...")
         page_data_list = self._extract_text_from_file(file_bytes, content_type)
         
         if not page_data_list:
@@ -503,21 +508,21 @@ class MultiKnowledgeBaseRAG:
             # STEP 3: Generate smart description for Semantic Router
             # ========================================
             smart_description = self._generate_smart_description(ai_metadata, filename)
-            print(f"📝 Generated description: {smart_description}")
+            logger.info(f"📝 Generated description: {smart_description}")
         else:
-            print("⚠️ No text found in first page, skipping AI metadata extraction")
+            logger.warning("No text found in first page, skipping AI metadata extraction")
         
         # ========================================
         # STEP 4: Create collection with rich description (if needed)
         # ========================================
         if not self.collection_exists(collection_name):
             if auto_create:
-                print(f"� Collection '{kb_name}' not found, creating with AI-generated description...")
+                logger.info(f"📦 Collection '{kb_name}' not found, creating with AI-generated description...")
                 result = self.create_collection(kb_name, description=smart_description)
                 if not result["success"]:
                     return result
-                print(f"✅ Collection created: {collection_name}")
-                print(f"   Description: {smart_description}")
+                logger.info(f"✅ Collection created: {collection_name}")
+                logger.debug(f"Description: {smart_description}")
             else:
                 return {
                     "success": False,
@@ -529,7 +534,7 @@ class MultiKnowledgeBaseRAG:
         # ========================================
         # STEP 5: Create documents with AI metadata
         # ========================================
-        print(f"📝 Creating documents from {len(page_data_list)} pages...")
+        logger.info(f"📝 Creating documents from {len(page_data_list)} pages...")
         documents: List[Document] = []
         
         for page_data in page_data_list:
@@ -550,9 +555,9 @@ class MultiKnowledgeBaseRAG:
             documents.append(doc)
         
         # Split documents into chunks
-        print(f"✂️ Splitting documents into chunks...")
+        logger.info(f"✂️ Splitting documents into chunks...")
         split_docs = self.text_splitter.split_documents(documents)
-        print(f"   Created {len(split_docs)} chunks")
+        logger.debug(f"Created {len(split_docs)} chunks")
         
         # ========================================
         # STEP 6: Store in Qdrant
@@ -570,11 +575,11 @@ class MultiKnowledgeBaseRAG:
             # ========================================
             self._update_router_index(kb_name, smart_description)
             
-            print(f"✅ Successfully uploaded {filename} to {kb_name}")
-            print(f"   KB Name: {kb_name}")
-            print(f"   Collection: {collection_name}")
-            print(f"   Description: {smart_description}")
-            print(f"   AI Metadata: {ai_metadata}")
+            logger.info(f"✅ Successfully uploaded {filename} to {kb_name}")
+            logger.debug(f"KB Name: {kb_name}")
+            logger.debug(f"Collection: {collection_name}")
+            logger.debug(f"Description: {smart_description}")
+            logger.debug(f"AI Metadata: {ai_metadata}")
             
             return {
                 "success": True,
@@ -588,9 +593,9 @@ class MultiKnowledgeBaseRAG:
                 "message": f"Document uploaded successfully to '{kb_name}' with AI-generated metadata"
             }
         except Exception as e:
-            print(f"❌ Failed to upload document: {e}")
+            logger.error(f"Failed to upload document: {e}", exc_info=True)
             import traceback
-            traceback.print_exc()
+            pass  # traceback handled by logger
             return {
                 "success": False,
                 "message": f"Failed to store document in Qdrant: {str(e)}",
@@ -681,9 +686,9 @@ class MultiKnowledgeBaseRAG:
                 "sources": sources
             }
         except Exception as e:
-            print(f"❌ Chat failed: {e}")
+            logger.error(f"Chat failed: {e}", exc_info=True)
             import traceback
-            traceback.print_exc()
+            pass  # traceback handled by logger
             return {
                 "success": False,
                 "message": str(e)
@@ -702,12 +707,12 @@ class MultiKnowledgeBaseRAG:
         try:
             # Check if router index exists and has data
             if not self.collection_exists(self.ROUTER_COLLECTION_NAME):
-                print("⚠️ Router index does not exist")
+                logger.warning("Router index does not exist")
                 return None
             
             collection_info = self.qdrant_client.get_collection(self.ROUTER_COLLECTION_NAME)
             if collection_info.points_count == 0:
-                print("⚠️ Router index is empty (no KBs registered)")
+                logger.warning("Router index is empty (no KBs registered)")
                 return None
             
             # Generate query embedding
@@ -721,7 +726,7 @@ class MultiKnowledgeBaseRAG:
             )
             
             if not search_result:
-                print("⚠️ No results from router index")
+                logger.warning("No results from router index")
                 return None
             
             # Get best match
@@ -730,20 +735,20 @@ class MultiKnowledgeBaseRAG:
             score = best_match.score
             description = best_match.payload.get("description", "")
             
-            print(f"🎯 Router found: {kb_name} (score: {score:.3f})")
-            print(f"   Description: {description}")
+            logger.info(f"🎯 Router found: {kb_name} (score: {score:.3f})")
+            logger.debug(f"Description: {description}")
             
             # Check if score meets threshold
             if score < self.ROUTER_SIMILARITY_THRESHOLD:
-                print(f"⚠️ Score {score:.3f} below threshold {self.ROUTER_SIMILARITY_THRESHOLD}")
+                logger.warning(f"Score {score:.3f} below threshold {self.ROUTER_SIMILARITY_THRESHOLD}")
                 return None
             
             return (kb_name, score)
             
         except Exception as e:
-            print(f"❌ Routing failed: {e}")
+            logger.error(f"Routing failed: {e}", exc_info=True)
             import traceback
-            traceback.print_exc()
+            pass  # traceback handled by logger
             return None
     
     def chat_auto_route(
@@ -764,7 +769,7 @@ class MultiKnowledgeBaseRAG:
         Returns:
             Dict with answer and routing information
         """
-        print(f"🌐 Auto-routing query: '{query[:100]}...'")
+        logger.info(f"🌐 Auto-routing query: '{query[:100]}...'")
         
         # Route to best KB
         routing_result = self.route_to_kb(query)
@@ -787,7 +792,7 @@ class MultiKnowledgeBaseRAG:
         # Unpack routing result
         kb_name, confidence_score = routing_result
         
-        print(f"✅ Routed to: {kb_name} (confidence: {confidence_score:.3f})")
+        logger.info(f"✅ Routed to: {kb_name} (confidence: {confidence_score:.3f})")
         
         # Chat with the selected KB
         result = self.chat_with_collection(
@@ -802,7 +807,7 @@ class MultiKnowledgeBaseRAG:
             result["routed_to"] = kb_name
             result["routing_confidence"] = confidence_score
             result["routing_method"] = "semantic_similarity"
-            print(f"✅ Auto-route successful: {kb_name}")
+            logger.info(f"✅ Auto-route successful: {kb_name}")
         
         return result
     
