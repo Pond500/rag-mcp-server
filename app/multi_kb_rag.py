@@ -15,7 +15,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import uuid
 from datetime import datetime
 import json
-
+from app.prompts import METADATA_EXTRACTOR_TEMPLATE
 # LangChain imports
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
@@ -147,8 +147,13 @@ class MultiKnowledgeBaseRAG:
                 "message": str(e)
             }
     
-    def list_collections(self) -> List[Dict[str, Any]]:
-        """List all knowledge base collections"""
+    def list_collections(self) -> Dict[str, Any]:
+        """
+        List all knowledge base collections with descriptions
+        
+        Returns:
+            Dict with collections list and count
+        """
         try:
             collections = self.qdrant_client.get_collections().collections
             kb_list = []
@@ -160,17 +165,44 @@ class MultiKnowledgeBaseRAG:
                     # Get collection info
                     info = self.qdrant_client.get_collection(col.name)
                     
+                    # Try to get metadata (including AI-generated description)
+                    description = "No description"
+                    try:
+                        results = self.qdrant_client.scroll(
+                            collection_name=col.name,
+                            scroll_filter={
+                                "must": [
+                                    {"key": "_type", "match": {"value": "collection_metadata"}}
+                                ]
+                            },
+                            limit=1
+                        )
+                        if results[0]:
+                            metadata_payload = results[0][0].payload
+                            description = metadata_payload.get("description", "No description")
+                    except Exception:
+                        pass
+                    
                     kb_list.append({
                         "kb_name": kb_name,
                         "collection_name": col.name,
+                        "description": description,
                         "points_count": info.points_count,
                         "vectors_count": info.vectors_count
                     })
             
-            return kb_list
+            return {
+                "success": True,
+                "count": len(kb_list),
+                "collections": kb_list
+            }
         except Exception as e:
             print(f"❌ Failed to list collections: {e}")
-            return []
+            return {
+                "success": False,
+                "message": str(e),
+                "collections": []
+            }
     
     def get_collection_info(self, kb_name: str) -> Optional[Dict[str, Any]]:
         """Get detailed info about a collection"""
@@ -270,6 +302,85 @@ class MultiKnowledgeBaseRAG:
             print(f"❌ Unsupported file type: {content_type}")
             return []
     
+    def _extract_metadata_from_text(self, text: str) -> Dict[str, Any]:
+        """
+        Extract metadata from document text using LLM
+        
+        Args:
+            text: Document text (usually first page)
+            
+        Returns:
+            Dict with doc_type, category, status, title
+        """
+        print("🤖 AI Extracting metadata from document...")
+        
+        # Truncate text to save tokens (first 4000 characters)
+        truncated_text = text[:4000]
+        
+        try:
+            # Create prompt using template from app.prompts
+            prompt_str = METADATA_EXTRACTOR_TEMPLATE.format(context_str=truncated_text)
+            
+            # Call LLM
+            response = self.llm.invoke(prompt_str)
+            raw_output = response.content
+            
+            # Clean and parse JSON output
+            json_str = raw_output.strip()
+            # Remove markdown code blocks if present
+            if json_str.startswith("```"):
+                json_str = json_str.split("```")[1]
+                if json_str.startswith("json"):
+                    json_str = json_str[4:]
+            json_str = json_str.strip()
+            
+            extracted_data = json.loads(json_str)
+            
+            # Validate required fields
+            if isinstance(extracted_data, dict):
+                required_fields = ["doc_type", "category", "status", "title"]
+                for field in required_fields:
+                    if field not in extracted_data:
+                        extracted_data[field] = "Unknown"
+                
+                print(f"✅ AI Metadata extracted: {extracted_data}")
+                return extracted_data
+            else:
+                raise ValueError("LLM did not return a dictionary")
+            
+        except Exception as e:
+            print(f"⚠️ Metadata extraction failed: {e}")
+            # Fallback to default values
+            return {
+                "doc_type": "Unknown", 
+                "category": "General", 
+                "status": "Published", 
+                "title": "Untitled Document"
+            }
+    
+    def _generate_smart_description(self, metadata: Dict[str, Any], filename: str) -> str:
+        """
+        Generate smart collection description from AI-extracted metadata
+        
+        Args:
+            metadata: Metadata dictionary from _extract_metadata_from_text
+            filename: Original filename
+            
+        Returns:
+            Rich description string for Semantic Router
+        """
+        doc_type = metadata.get("doc_type", "Unknown")
+        title = metadata.get("title", filename)
+        category = metadata.get("category", "General")
+        status = metadata.get("status", "")
+        
+        # Format: "[Type] Title - Category: Category (Status)"
+        description = f"[{doc_type}] {title} - Category: {category}"
+        if status and status != "Unknown":
+            description += f" ({status})"
+        
+        return description
+
     def upload_document(
         self,
         kb_name: str,
@@ -280,56 +391,92 @@ class MultiKnowledgeBaseRAG:
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Upload document to knowledge base
+        Upload document to knowledge base with AI-First Ingestion Flow
+        
+        NEW FLOW (Semantic Router Ready):
+        1. Extract text from file FIRST
+        2. Use AI to extract metadata (doc_type, title, category, status)
+        3. Generate smart description for collection
+        4. Create collection with rich description (if auto_create=True)
+        5. Store document with AI metadata
         
         Args:
             kb_name: Knowledge base name
             file_bytes: File content
             filename: File name
             content_type: MIME type
-            auto_create: Auto-create collection if not exists
-            metadata: Additional metadata
+            auto_create: Auto-create collection if not exists (default: True)
+            metadata: Additional metadata (optional, will override AI metadata)
             
         Returns:
-            Dict with upload result
+            Dict with upload result including AI-extracted metadata
         """
         collection_name = self._get_collection_name(kb_name)
         
-        # Auto-create collection if needed
-        if not self.collection_exists(collection_name):
-            if auto_create:
-                print(f"📁 Collection '{kb_name}' not found, creating...")
-                result = self.create_collection(kb_name, description=f"Auto-created for {filename}")
-                if not result["success"]:
-                    return result
-            else:
-                return {
-                    "success": False,
-                    "message": f"Knowledge base '{kb_name}' does not exist. Please create it first using create_collection, or set auto_create=true to create automatically.",
-                    "suggestion": f"Try: create_collection(kb_name='{kb_name}') or upload_document_to_kb(..., auto_create=true)"
-                }
-        
-        # Extract text
+        # ========================================
+        # STEP 1: Extract text from file FIRST
+        # ========================================
         print(f"📄 Extracting text from {filename}...")
         page_data_list = self._extract_text_from_file(file_bytes, content_type)
         
         if not page_data_list:
             return {
                 "success": False,
-                "message": "Failed to extract text from file"
+                "message": "Failed to extract text from file. Please check file format and content."
             }
         
-        # Create documents
+        # ========================================
+        # STEP 2: Use AI to extract metadata from first page
+        # ========================================
+        ai_metadata = {}
+        smart_description = f"Auto-created collection for {filename}"
+        
+        if page_data_list and page_data_list[0].get('text'):
+            first_page_text = page_data_list[0]['text']
+            ai_metadata = self._extract_metadata_from_text(first_page_text)
+            
+            # ========================================
+            # STEP 3: Generate smart description for Semantic Router
+            # ========================================
+            smart_description = self._generate_smart_description(ai_metadata, filename)
+            print(f"📝 Generated description: {smart_description}")
+        else:
+            print("⚠️ No text found in first page, skipping AI metadata extraction")
+        
+        # ========================================
+        # STEP 4: Create collection with rich description (if needed)
+        # ========================================
+        if not self.collection_exists(collection_name):
+            if auto_create:
+                print(f"� Collection '{kb_name}' not found, creating with AI-generated description...")
+                result = self.create_collection(kb_name, description=smart_description)
+                if not result["success"]:
+                    return result
+                print(f"✅ Collection created: {collection_name}")
+                print(f"   Description: {smart_description}")
+            else:
+                return {
+                    "success": False,
+                    "message": f"Knowledge base '{kb_name}' does not exist.",
+                    "suggestion": f"Set auto_create=true to automatically create the KB, or call create_collection(kb_name='{kb_name}') first.",
+                    "ai_metadata": ai_metadata  # Return AI findings even on error
+                }
+        
+        # ========================================
+        # STEP 5: Create documents with AI metadata
+        # ========================================
         print(f"📝 Creating documents from {len(page_data_list)} pages...")
         documents: List[Document] = []
         
         for page_data in page_data_list:
+            # Merge metadata: System + AI + User-provided (priority order)
             doc_metadata = {
                 "kb_name": kb_name,
                 "filename": filename,
                 "page_number": page_data['page_number'],
                 "uploaded_at": datetime.now().isoformat(),
-                **(metadata or {})
+                **ai_metadata,       # AI-extracted metadata
+                **(metadata or {})   # User metadata (overrides AI if provided)
             }
             
             doc = Document(
@@ -338,12 +485,14 @@ class MultiKnowledgeBaseRAG:
             )
             documents.append(doc)
         
-        # Split documents
+        # Split documents into chunks
         print(f"✂️ Splitting documents into chunks...")
         split_docs = self.text_splitter.split_documents(documents)
         print(f"   Created {len(split_docs)} chunks")
         
-        # Store in Qdrant
+        # ========================================
+        # STEP 6: Store in Qdrant
+        # ========================================
         try:
             vector_store = Qdrant(
                 client=self.qdrant_client,
@@ -353,18 +502,30 @@ class MultiKnowledgeBaseRAG:
             vector_store.add_documents(split_docs)
             
             print(f"✅ Successfully uploaded {filename} to {kb_name}")
+            print(f"   KB Name: {kb_name}")
+            print(f"   Collection: {collection_name}")
+            print(f"   Description: {smart_description}")
+            print(f"   AI Metadata: {ai_metadata}")
+            
             return {
                 "success": True,
                 "kb_name": kb_name,
+                "collection_name": collection_name,
                 "filename": filename,
                 "chunks": len(split_docs),
-                "pages": len(page_data_list)
+                "pages": len(page_data_list),
+                "ai_metadata": ai_metadata,
+                "collection_description": smart_description,
+                "message": f"Document uploaded successfully to '{kb_name}' with AI-generated metadata"
             }
         except Exception as e:
             print(f"❌ Failed to upload document: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "success": False,
-                "message": str(e)
+                "message": f"Failed to store document in Qdrant: {str(e)}",
+                "ai_metadata": ai_metadata  # Return AI findings even on error
             }
     
     def _get_or_create_memory(self, collection_name: str, session_id: str) -> ConversationBufferMemory:
@@ -403,11 +564,13 @@ class MultiKnowledgeBaseRAG:
         collection_name = self._get_collection_name(kb_name)
         
         if not self.collection_exists(collection_name):
+            collections_result = self.list_collections()
+            available_kbs = [info["kb_name"] for info in collections_result.get("collections", [])]
             return {
                 "success": False,
                 "message": f"Knowledge base '{kb_name}' does not exist. Please upload documents first.",
                 "suggestion": f"Try: upload_document_to_kb(kb_name='{kb_name}', ...) to create KB and add documents, then use chat_with_kb.",
-                "available_kbs": [info["kb_name"] for info in self.list_collections()["collections"]]
+                "available_kbs": available_kbs
             }
         
         try:
