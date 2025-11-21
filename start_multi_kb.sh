@@ -1,13 +1,13 @@
 #!/bin/bash
-# Start MCP Server with ngrok tunnel
-# Usage: ./start_mcp.sh
+# Start Multi-KB MCP Server with ngrok
+# Usage: ./start_multi_kb.sh
 
 set -e
 
 cd "$(dirname "$0")"
 
 echo "🧹 Cleaning up old processes..."
-# Kill ALL uvicorn processes (including multi-kb server)
+# Kill ALL uvicorn processes (including old mcp_server.py)
 pkill -9 -f "uvicorn" 2>/dev/null || true
 # Kill ngrok
 pkill -9 ngrok 2>/dev/null || true
@@ -18,9 +18,9 @@ lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 echo "⏳ Waiting for cleanup..."
 sleep 2
 
-echo "🚀 Starting MCP Server on port 8000..."
+echo "🚀 Starting Multi-KB MCP Server on port 8000..."
 source venv_clean/bin/activate
-nohup python -B -m uvicorn mcp_server:app --host 0.0.0.0 --port 8000 > mcp_server.log 2>&1 &
+nohup python -B -m uvicorn mcp_server_multi_kb:app --host 0.0.0.0 --port 8000 > mcp_server_multi_kb.log 2>&1 &
 SERVER_PID=$!
 echo "   Server PID: $SERVER_PID"
 
@@ -36,7 +36,7 @@ echo "⏳ Waiting for ngrok..."
 sleep 5
 
 echo ""
-echo "✅ MCP Server is running!"
+echo "✅ Multi-KB MCP Server is running!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Get ngrok public URL
@@ -49,21 +49,21 @@ else
     echo "📍 Dify MCP URL: ${NGROK_URL}/mcp"
     echo ""
     echo "   Use this URL in Dify Cloud MCP Tool settings"
+    echo "   Server Name: multi-kb-rag-server"
+    echo "   Server Version: 2.0.0"
 fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
+echo "📊 Features:"
+echo "   ✅ 7 MCP Tools (create, upload, chat, list, info, clear, delete)"
+echo "   ✅ Dynamic collection creation (auto-create)"
+echo "   ✅ Multi-knowledge base support"
+echo "   ✅ Conversation history per collection/session"
+echo ""
 echo "📊 To view logs:"
-echo "   tail -f mcp_server.log"
+echo "   tail -f mcp_server_multi_kb.log"
 echo ""
 echo "🛑 To stop:"
-echo "   pkill -9 -f 'uvicorn mcp_server:app'; pkill -9 ngrok"
+echo "   pkill -9 -f 'uvicorn mcp_server_multi_kb:app'; pkill -9 ngrok"
 echo ""
-
-
-
-####สรุป
-
-#cd /Users/pond500/RAG/mcp_rag-main
-#chmod +x start_mcp.sh
-#./start_mcp.sh
