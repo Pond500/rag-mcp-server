@@ -1,5 +1,5 @@
 INFO: ✅ Logger initialized: mcp_server
-INFO:     Started server process [52196]
+INFO:     Started server process [9140]
 INFO:     Waiting for application startup.
 INFO: 🚀 Starting Multi-KB MCP Server...
 INFO: 🚀 Initializing Multi-Knowledge Base RAG System...
@@ -11,12 +11,61 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 INFO: 📥 POST /mcp
 INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
-INFO: 📤 POST /mcp → 200 (0.88ms)
-INFO:     127.0.0.1:51128 - "POST /mcp HTTP/1.1" 200 OK
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO: 🛑 Shutting down Multi-KB MCP Server...
-INFO:     Application shutdown complete.
-INFO:     Finished server process [52196]
+INFO: 📤 POST /mcp → 200 (1.81ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (0.90ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (2.60ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.50ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 200 (2.04ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (3.58ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.37ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (2.61ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.32ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 200 (2.30ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (3.63ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.17ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (2.67ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.63ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 200 (2.22ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (3.98ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.15ms)
+INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
 /opt/homebrew/Cellar/python@3.10/3.10.19_1/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
   warnings.warn('resource_tracker: There appear to be %d '

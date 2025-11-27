@@ -10,13 +10,16 @@ Features:
 """
 
 import qdrant_client
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct, SparseVectorParams, Modifier, SparseVector
 from typing import List, Dict, Any, Optional, Tuple
 import uuid
 from datetime import datetime
 import json
 from app.prompts import METADATA_EXTRACTOR_TEMPLATE
 from app.logger import logger
+
+# FastEmbed for Sparse BM25
+from fastembed import SparseTextEmbedding
 
 # LangChain imports
 from langchain_core.documents import Document
@@ -61,11 +64,16 @@ class MultiKnowledgeBaseRAG:
             request_timeout=120
         )
         
-        # Embedding model
+        # Dense Embedding model (bge-m3)
         self.embed_model = HuggingFaceEmbeddings(
             model_name=config.EMBED_MODEL_NAME,
             encode_kwargs={'normalize_embeddings': True}
         )
+        
+        # Sparse Embedding model (BM25) for Hybrid Search
+        logger.info("🔍 Initializing Sparse BM25 model...")
+        self.sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
+        logger.info("✅ Sparse BM25 model loaded")
         
         # Text splitter
         self.text_splitter = RecursiveCharacterTextSplitter(
@@ -79,7 +87,7 @@ class MultiKnowledgeBaseRAG:
         # Ensure router index exists
         self._ensure_router_index()
         
-        logger.info("✅ Multi-KB RAG System initialized")
+        logger.info("✅ Multi-KB RAG System initialized with Hybrid Search (Dense + Sparse BM25)")
     
     def _normalize_collection_name(self, name: str) -> str:
         """Normalize collection name (lowercase, replace spaces with underscore)"""
@@ -123,8 +131,10 @@ class MultiKnowledgeBaseRAG:
             
             # Create point for router index
             collection_name = self._get_collection_name(kb_name)
+            # Use UUID generated from kb_name for consistent ID
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, kb_name))
             point = PointStruct(
-                id=collection_name,  # Use collection name as ID for easy updates
+                id=point_id,
                 vector=description_vector,
                 payload={
                     "kb_name": kb_name,
@@ -175,16 +185,27 @@ class MultiKnowledgeBaseRAG:
             }
         
         try:
-            # Create collection (bge-m3 dimension = 1024)
+            # Create collection with Hybrid Search support (Dense + Sparse vectors)
             self.qdrant_client.create_collection(
                 collection_name=collection_name,
-                vectors_config=VectorParams(size=1024, distance=Distance.COSINE)
+                # Dense Vector (bge-m3, dimension = 1024)
+                vectors_config={
+                    "dense": VectorParams(size=1024, distance=Distance.COSINE)
+                },
+                # Sparse Vector (BM25)
+                sparse_vectors_config={
+                    "bm25": SparseVectorParams(modifier=Modifier.IDF)
+                }
             )
+            logger.info(f"✅ Created Hybrid Search collection: {collection_name} (Dense + BM25)")
             
             # Store metadata as payload in a special point
             metadata_point = PointStruct(
                 id=str(uuid.uuid4()),
-                vector=[0.0] * 1024,  # Dummy vector
+                vector={
+                    "dense": [0.0] * 1024,  # Dummy dense vector
+                    "bm25": {"indices": [], "values": []}  # Dummy sparse vector
+                },
                 payload={
                     "_type": "collection_metadata",
                     "kb_name": kb_name,
@@ -560,15 +581,52 @@ class MultiKnowledgeBaseRAG:
         logger.debug(f"Created {len(split_docs)} chunks")
         
         # ========================================
-        # STEP 6: Store in Qdrant
+        # STEP 6: Generate Hybrid Vectors & Store in Qdrant
         # ========================================
         try:
-            vector_store = Qdrant(
-                client=self.qdrant_client,
+            logger.info("🔄 Generating Dense + Sparse (BM25) vectors for Hybrid Search...")
+            
+            # Prepare points with both Dense and Sparse vectors
+            points = []
+            for idx, doc in enumerate(split_docs):
+                text = doc.page_content
+                
+                # Generate Dense Vector (bge-m3)
+                dense_vector = self.embed_model.embed_query(text)
+                
+                # Generate Sparse Vector (BM25)
+                # Note: sparse_model.embed() returns a generator, we need to consume it
+                sparse_result = list(self.sparse_model.embed([text]))[0]
+                sparse_vector = {
+                    "indices": sparse_result.indices.tolist(),
+                    "values": sparse_result.values.tolist()
+                }
+                
+                # Create point with named vectors
+                point = PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector={
+                        "dense": dense_vector,
+                        "bm25": sparse_vector
+                    },
+                    payload={
+                        "text": text,
+                        **doc.metadata
+                    }
+                )
+                points.append(point)
+                
+                # Log progress every 100 chunks
+                if (idx + 1) % 100 == 0:
+                    logger.debug(f"Processed {idx + 1}/{len(split_docs)} chunks")
+            
+            # Upsert all points to Qdrant
+            logger.info(f"💾 Upserting {len(points)} points with Hybrid vectors to Qdrant...")
+            self.qdrant_client.upsert(
                 collection_name=collection_name,
-                embeddings=self.embed_model
+                points=points
             )
-            vector_store.add_documents(split_docs)
+            logger.info(f"✅ Uploaded {len(points)} chunks with Dense + BM25 vectors")
             
             # ========================================
             # STEP 7: Update router index with smart description
@@ -648,42 +706,142 @@ class MultiKnowledgeBaseRAG:
             }
         
         try:
-            # Get vector store
-            vector_store = Qdrant(
-                client=self.qdrant_client,
-                collection_name=collection_name,
-                embeddings=self.embed_model
+            # ========================================
+            # STEP 1: Hybrid Search (Dense + Sparse BM25)
+            # ========================================
+            logger.info(f"🔍 Performing Hybrid Search for query: '{query[:100]}...'")
+            
+            # Generate Dense vector (bge-m3)
+            dense_query_vector = self.embed_model.embed_query(query)
+            
+            # Generate Sparse vector (BM25)
+            sparse_result = list(self.sparse_model.embed([query]))[0]
+            sparse_query_vector = SparseVector(
+                indices=sparse_result.indices.tolist(),
+                values=sparse_result.values.tolist()
             )
             
+            # Perform Hybrid Query with prefetch (Dense) + query (Sparse)
+            # This leverages Qdrant's built-in RRF (Reciprocal Rank Fusion)
+            search_results = self.qdrant_client.query_points(
+                collection_name=collection_name,
+                prefetch=[
+                    {
+                        "using": "dense",
+                        "query": dense_query_vector,
+                        "limit": top_k * 2  # Fetch more candidates for reranking
+                    }
+                ],
+                query=sparse_query_vector,
+                using="bm25",
+                limit=top_k * 2  # Get top_k * 2 for reranking
+            )
+            
+            logger.debug(f"Hybrid Search returned {len(search_results.points)} candidates")
+            
+            # ========================================
+            # STEP 2: Reranking with bge-reranker-v2-m3
+            # ========================================
+            if not search_results.points:
+                return {
+                    "success": False,
+                    "message": f"No relevant documents found in '{kb_name}' for your query.",
+                    "kb_name": kb_name,
+                    "query": query
+                }
+            
+            logger.info(f"🎯 Reranking {len(search_results.points)} candidates...")
+            
+            # Import reranker (lazy import to avoid loading if not needed)
+            from sentence_transformers import CrossEncoder
+            reranker = CrossEncoder("BAAI/bge-reranker-v2-m3")
+            
+            # Prepare candidates for reranking
+            candidate_texts = []
+            candidate_payloads = []
+            for point in search_results.points:
+                text = point.payload.get("text", "")
+                candidate_texts.append(text)
+                candidate_payloads.append(point.payload)
+            
+            # Rerank: score each (query, document) pair
+            rerank_scores = reranker.predict([(query, text) for text in candidate_texts])
+            
+            # Sort by rerank scores (descending) and take top_k
+            scored_docs = list(zip(rerank_scores, candidate_texts, candidate_payloads))
+            scored_docs.sort(key=lambda x: x[0], reverse=True)
+            top_docs = scored_docs[:top_k]
+            
+            logger.info(f"✅ Reranking complete, selected top {len(top_docs)} documents")
+            logger.debug(f"Top rerank scores: {[f'{score:.4f}' for score, _, _ in top_docs[:3]]}")
+            
+            # ========================================
+            # STEP 3: Build Context & Generate Answer with LLM
+            # ========================================
             # Get or create memory
             memory = self._get_or_create_memory(collection_name, session_id)
             
-            # Create conversational chain
-            qa_chain = ConversationalRetrievalChain.from_llm(
-                llm=self.llm,
-                retriever=vector_store.as_retriever(search_kwargs={"k": top_k}),
-                memory=memory,
-                return_source_documents=True,
-                verbose=False
-            )
+            # Build context from reranked documents
+            context_docs = []
+            for score, text, payload in top_docs:
+                doc = Document(
+                    page_content=text,
+                    metadata=payload
+                )
+                context_docs.append(doc)
             
-            # Query
-            result = qa_chain({"question": query})
+            # Get chat history
+            chat_history = memory.load_memory_variables({}).get("chat_history", [])
+            
+            # Build prompt manually (since we're not using the standard retriever)
+            context_text = "\n\n".join([doc.page_content for doc in context_docs])
+            
+            # Format chat history
+            history_text = ""
+            if chat_history:
+                for msg in chat_history:
+                    role = "Human" if msg.type == "human" else "Assistant"
+                    history_text += f"{role}: {msg.content}\n"
+            
+            # Create full prompt
+            full_prompt = f"""Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+
+Context:
+{context_text}
+
+Chat History:
+{history_text}
+
+Question: {query}
+
+Helpful Answer:"""
+            
+            # Generate answer with LLM
+            logger.info("💬 Generating answer with LLM...")
+            response = self.llm.invoke(full_prompt)
+            answer = response.content
+            
+            # Save to memory
+            memory.save_context({"question": query}, {"answer": answer})
             
             # Format sources
             sources = []
-            for doc in result.get("source_documents", []):
+            for score, text, payload in top_docs:
                 sources.append({
-                    "content": doc.page_content[:200] + "...",
-                    "metadata": doc.metadata
+                    "content": text[:200] + "..." if len(text) > 200 else text,
+                    "metadata": payload,
+                    "rerank_score": float(score)
                 })
+            
+            logger.info(f"✅ Answer generated successfully for session: {session_id}")
             
             return {
                 "success": True,
                 "kb_name": kb_name,
                 "session_id": session_id,
-                "answer": result["answer"],
-                "sources": sources
+                "answer": answer,
+                "sources": sources,
+                "search_method": "hybrid_search_with_reranking"
             }
         except Exception as e:
             logger.error(f"Chat failed: {e}", exc_info=True)
@@ -804,10 +962,8 @@ class MultiKnowledgeBaseRAG:
         
         # Add routing information to response
         if result.get("success"):
-            result["routed_to"] = kb_name
-            result["routing_confidence"] = confidence_score
-            result["routing_method"] = "semantic_similarity"
-            logger.info(f"✅ Auto-route successful: {kb_name}")
+            result["routing_confidence"] = float(confidence_score)
+            result["auto_routed"] = True
         
         return result
     

@@ -8,3 +8,4 @@ venv_clean/
 mcp_server.log
 ngrok.log
 __pycache__/
+server.log

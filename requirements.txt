@@ -20,6 +20,9 @@ langchain-qdrant==0.2.0
 langchain-huggingface==0.1.2
 langchain-text-splitters==0.3.4
 
+# --- Hybrid Search Dependencies ---
+fastembed==0.3.6
+
 # --- MCP Server (HTTP+SSE Transport for Dify) ---
 # FastAPI and uvicorn already included above
 # No additional dependencies needed for SSE implementation
