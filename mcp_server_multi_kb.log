@@ -1,71 +1,107 @@
 INFO: ✅ Logger initialized: mcp_server
-INFO:     Started server process [9140]
+INFO:     Started server process [57200]
 INFO:     Waiting for application startup.
 INFO: 🚀 Starting Multi-KB MCP Server...
 INFO: 🚀 Initializing Multi-Knowledge Base RAG System...
 /Users/pond500/RAG/mcp_rag-main/venv_clean/lib/python3.10/site-packages/huggingface_hub/file_download.py:942: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
   warnings.warn(
-INFO: ✅ Multi-KB RAG System initialized
+INFO: 🔍 Initializing Sparse BM25 model...
+Fetching 30 files:   0%|          | 0/30 [00:00<?, ?it/s]Fetching 30 files: 100%|██████████| 30/30 [00:00<00:00, 285975.27it/s]
+INFO: ✅ Sparse BM25 model loaded
+INFO: ✅ Multi-KB RAG System initialized with Hybrid Search (Dense + Sparse BM25)
 INFO: ✅ Multi-KB MCP Server ready
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 INFO: 📥 POST /mcp
 INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
-INFO: 📤 POST /mcp → 200 (1.81ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📤 POST /mcp → 200 (3.11ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
 INFO: 📥 POST /mcp
-INFO: 📤 POST /mcp → 202 (0.90ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📤 POST /mcp → 202 (2.08ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
 INFO: 📥 POST /mcp
-INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
-INFO: 📤 POST /mcp → 200 (2.60ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
-INFO: 📥 POST /mcp
-INFO: 📤 POST /mcp → 202 (2.50ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
-INFO: 📥 POST /mcp
-INFO: 📤 POST /mcp → 200 (2.04ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📤 POST /mcp → 200 (2.37ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
 INFO: 📥 POST /mcp
 INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
-INFO: 📤 POST /mcp → 200 (3.58ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📤 POST /mcp → 200 (2.64ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
 INFO: 📥 POST /mcp
-INFO: 📤 POST /mcp → 202 (2.37ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
-INFO: 📥 POST /mcp
-INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
-INFO: 📤 POST /mcp → 200 (2.61ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
-INFO: 📥 POST /mcp
-INFO: 📤 POST /mcp → 202 (2.32ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
-INFO: 📥 POST /mcp
-INFO: 📤 POST /mcp → 200 (2.30ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
-INFO: 📥 POST /mcp
-INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
-INFO: 📤 POST /mcp → 200 (3.63ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
-INFO: 📥 POST /mcp
-INFO: 📤 POST /mcp → 202 (2.17ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
-INFO: 📥 POST /mcp
-INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
-INFO: 📤 POST /mcp → 200 (2.67ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
-INFO: 📥 POST /mcp
-INFO: 📤 POST /mcp → 202 (2.63ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📤 POST /mcp → 202 (1.90ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
 INFO: 📥 POST /mcp
 INFO: 📤 POST /mcp → 200 (2.22ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
 INFO: 📥 POST /mcp
 INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
-INFO: 📤 POST /mcp → 200 (3.98ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📤 POST /mcp → 200 (2.33ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
 INFO: 📥 POST /mcp
 INFO: 📤 POST /mcp → 202 (2.15ms)
-INFO:     203.185.130.133:0 - "POST /mcp HTTP/1.1" 202 Accepted
-/opt/homebrew/Cellar/python@3.10/3.10.19_1/Frameworks/Python.framework/Versions/3.10/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
-  warnings.warn('resource_tracker: There appear to be %d '
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 200 (2.66ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (2.11ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (3.11ms)
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (2.34ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.68ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 200 (1.95ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (3.62ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.28ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: 🔧 Tool call: list_collections
+INFO: 📤 POST /mcp → 200 (12.67ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (2.49ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.96ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: 🔧 Tool call: get_collection_info
+INFO: 📤 POST /mcp → 200 (21.85ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: ✅ Initialize: Registered 8 tools (including 🌐 chat_global)
+INFO: 📤 POST /mcp → 200 (3.84ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK
+INFO: 📥 POST /mcp
+INFO: 📤 POST /mcp → 202 (2.04ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO: 📥 POST /mcp
+INFO: 🔧 Tool call: chat_with_kb
+INFO: 🔍 Performing Hybrid Search for query: 'ขอใบอนุญาติมีปืนต้องไปติดต่อที่ไหนบ้าง...'
+INFO:   [1/3] Dense vector search (limit=10)...
+INFO:        → Found 10 points from dense search
+INFO:   [2/3] Sparse BM25 search (limit=10)...
+INFO:        → Found 0 points from sparse search
+INFO:   [3/3] Applying Reciprocal Rank Fusion (RRF)...
+INFO:        → RRF fused 10 unique points, taking top 10
+INFO:        → Top 3 RRF scores: ['0.0164', '0.0161', '0.0159']
+INFO: 🎯 Reranking 10 candidates...
+/Users/pond500/RAG/mcp_rag-main/venv_clean/lib/python3.10/site-packages/huggingface_hub/file_download.py:942: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+INFO: ✅ Reranking complete, selected top 5 documents
+INFO: 💬 Generating answer with LLM...
+INFO: ✅ Answer generated successfully for session: session_1
+INFO: 📤 POST /mcp → 200 (14425.95ms)
+INFO:     3.214.24.53:0 - "POST /mcp HTTP/1.1" 200 OK

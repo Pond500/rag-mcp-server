@@ -10,7 +10,10 @@ Features:
 """
 
 import qdrant_client
-from qdrant_client.models import Distance, VectorParams, PointStruct, SparseVectorParams, Modifier, SparseVector
+from qdrant_client.models import (
+    Distance, VectorParams, PointStruct, SparseVectorParams, Modifier, SparseVector,
+    Filter, FieldCondition, MatchValue
+)
 from typing import List, Dict, Any, Optional, Tuple
 import uuid
 from datetime import datetime
@@ -707,7 +710,7 @@ class MultiKnowledgeBaseRAG:
         
         try:
             # ========================================
-            # STEP 1: Hybrid Search (Dense + Sparse BM25)
+            # STEP 1: Hybrid Search with RRF (Dense + Sparse BM25)
             # ========================================
             logger.info(f"🔍 Performing Hybrid Search for query: '{query[:100]}...'")
             
@@ -721,28 +724,67 @@ class MultiKnowledgeBaseRAG:
                 values=sparse_result.values.tolist()
             )
             
-            # Perform Hybrid Query with prefetch (Dense) + query (Sparse)
-            # This leverages Qdrant's built-in RRF (Reciprocal Rank Fusion)
-            search_results = self.qdrant_client.query_points(
-                collection_name=collection_name,
-                prefetch=[
-                    {
-                        "using": "dense",
-                        "query": dense_query_vector,
-                        "limit": top_k * 2  # Fetch more candidates for reranking
-                    }
-                ],
-                query=sparse_query_vector,
-                using="bm25",
-                limit=top_k * 2  # Get top_k * 2 for reranking
+            # Prepare filter (exclude metadata points)
+            search_filter = Filter(
+                must_not=[
+                    FieldCondition(
+                        key="_type",
+                        match=MatchValue(value="collection_metadata")
+                    )
+                ]
             )
             
-            logger.debug(f"Hybrid Search returned {len(search_results.points)} candidates")
+            # STEP 1.1: Dense Vector Search
+            logger.info(f"  [1/3] Dense vector search (limit={top_k*2})...")
+            vector_results = self.qdrant_client.search(
+                collection_name=collection_name,
+                query_vector=("dense", dense_query_vector),
+                query_filter=search_filter,
+                limit=top_k * 2
+            )
+            logger.info(f"       → Found {len(vector_results)} points from dense search")
+            
+            # STEP 1.2: Sparse BM25 Search
+            logger.info(f"  [2/3] Sparse BM25 search (limit={top_k*2})...")
+            from qdrant_client.models import NamedSparseVector
+            sparse_results = self.qdrant_client.search(
+                collection_name=collection_name,
+                query_vector=NamedSparseVector(name="bm25", vector=sparse_query_vector),
+                query_filter=search_filter,
+                limit=top_k * 2
+            )
+            logger.info(f"       → Found {len(sparse_results)} points from sparse search")
+            
+            # STEP 1.3: Reciprocal Rank Fusion (RRF)
+            logger.info(f"  [3/3] Applying Reciprocal Rank Fusion (RRF)...")
+            rrf_k = 60  # RRF constant
+            rrf_scores = {}
+            
+            # Score from dense search
+            for rank, point in enumerate(vector_results):
+                if point.id not in rrf_scores:
+                    rrf_scores[point.id] = {"score": 0, "point": point}
+                rrf_scores[point.id]["score"] += 1 / (rrf_k + rank + 1)
+            
+            # Score from sparse search
+            for rank, point in enumerate(sparse_results):
+                if point.id not in rrf_scores:
+                    rrf_scores[point.id] = {"score": 0, "point": point}
+                rrf_scores[point.id]["score"] += 1 / (rrf_k + rank + 1)
+            
+            # Sort by RRF score and get top candidates
+            sorted_results = sorted(rrf_scores.values(), key=lambda x: x["score"], reverse=True)
+            top_candidates = sorted_results[:top_k * 2]
+            
+            logger.info(f"       → RRF fused {len(rrf_scores)} unique points, taking top {len(top_candidates)}")
+            if top_candidates:
+                top_scores = [f"{x['score']:.4f}" for x in top_candidates[:3]]
+                logger.info(f"       → Top 3 RRF scores: {top_scores}")
             
             # ========================================
             # STEP 2: Reranking with bge-reranker-v2-m3
             # ========================================
-            if not search_results.points:
+            if not top_candidates:
                 return {
                     "success": False,
                     "message": f"No relevant documents found in '{kb_name}' for your query.",
@@ -750,7 +792,7 @@ class MultiKnowledgeBaseRAG:
                     "query": query
                 }
             
-            logger.info(f"🎯 Reranking {len(search_results.points)} candidates...")
+            logger.info(f"🎯 Reranking {len(top_candidates)} candidates...")
             
             # Import reranker (lazy import to avoid loading if not needed)
             from sentence_transformers import CrossEncoder
@@ -759,10 +801,13 @@ class MultiKnowledgeBaseRAG:
             # Prepare candidates for reranking
             candidate_texts = []
             candidate_payloads = []
-            for point in search_results.points:
+            candidate_points = []
+            for item in top_candidates:
+                point = item["point"]
                 text = point.payload.get("text", "")
                 candidate_texts.append(text)
                 candidate_payloads.append(point.payload)
+                candidate_points.append(point)
             
             # Rerank: score each (query, document) pair
             rerank_scores = reranker.predict([(query, text) for text in candidate_texts])

@@ -8,7 +8,7 @@ import time
 # ---------------- Configuration ----------------
 SERVER_URL = "http://localhost:8000/mcp"
 FOLDER_PATH = "/Users/pond500/Downloads/1. งานอาวุธปืน"  # ⚠️ ระบุเป็นโฟล์เดอร์แทน
-KB_NAME = "kb_gun_law_v2"
+KB_NAME = "gun_law_hybrid"  # ใช้ชื่อใหม่สำหรับ Hybrid Search version
 ALLOWED_EXTENSIONS = {'.pdf', '.txt', '.docx'} # นามสกุลที่รองรับ
 # -------------------------------------------
 
